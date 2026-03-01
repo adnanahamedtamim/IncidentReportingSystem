@@ -1,3 +1,10 @@
+-- clean slate: remove existing data to avoid FK conflicts
+TRUNCATE TABLE INCIDENT_AUDIO, INCIDENT_VIDEO, INCIDENT_PHOTOS, INCIDENT_COMMENTS,
+  INCIDENT_ASSIGNMENTS, INCIDENT_STATUS_HISTORY, INCIDENTS,
+  INCIDENT_TYPES, FORUM_POSTS, FORUM_THREAD, NOTIFICATIONS,
+  INCIDENT_ANALYTICS, USERS, Locations, INCIDENT_STATUS, SEVERITY_LEVEL
+  RESTART IDENTITY CASCADE;
+
 -- ============================================================================
 -- SEVERITY LEVELS
 -- ============================================================================
@@ -69,7 +76,8 @@ VALUES
   ('Dhaka Metro Police', 'dhakametropolice@dmp.bd', 'hashed_pass_dmp', 'Admin', '880-1234-5682', true),
   ('System Analyst', 'system.analyst@buet.ac.bd', 'hashed_pass_analyst', 'Analyst', '880-1234-5683', true),
   ('Student User 1', 'student1@ugrad.buet.ac.bd', 'hashed_pass_student1', 'User', '880-1234-5684', true),
-  ('Student User 2', 'student2@ugrad.buet.ac.bd', 'hashed_pass_student2', 'User', '880-1234-5685', true);
+  ('Student User 2', 'student2@ugrad.buet.ac.bd', 'hashed_pass_student2', 'User', '880-1234-5685', true)
+ON CONFLICT (Email) DO NOTHING;
 
 -- ============================================================================
 -- INCIDENT TYPES - All 4 Types as per requirements

@@ -191,10 +191,6 @@
             color: #e0e0e0;
             border: 1px solid #505070;
         }
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
 
         nav button {
             background: rgba(255,255,255,0.15);
@@ -727,6 +723,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
         const API_URL = '/api';
+        // helper that automatically attaches auth token if available
+        function getHeaders(extra = {}) {
+            const headers = { 'Content-Type': 'application/json', ...extra };
+            const token = localStorage.getItem('token');
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            return headers;
+        }
+
+        async function apiFetch(path, opts = {}) {
+            const options = { ...opts };
+            options.headers = getHeaders(options.headers);
+            return fetch(`${API_URL}${path}`, options);
+        }
         let currentUser = null;
         let mainMap = null;
         let reportMap = null;
@@ -848,25 +859,28 @@
             navMenu.innerHTML = '';
 
             if (currentUser.role === 'Admin') {
-                navMenu.innerHTML = '<button class="nav-btn active" onclick="showSection(\'adminDashboard\')">Admin Dashboard</button><button class="nav-btn" onclick="showSection(\'incidentsList\')">All Incidents</button>';
+                navMenu.innerHTML = '<button class="nav-btn active" onclick="showSection(\'adminDashboard\', event)">Admin Dashboard</button><button class="nav-btn" onclick="showSection(\'incidentsList\', event)">All Incidents</button>';
                 showSection('adminDashboard');
                 loadAdminDashboard();
             } else if (currentUser.role === 'Analyst') {
-                navMenu.innerHTML = '<button class="nav-btn active" onclick="showSection(\'analystDashboard\')">Analytics</button><button class="nav-btn" onclick="showSection(\'incidentsList\')">All Incidents</button>';
+                navMenu.innerHTML = '<button class="nav-btn active" onclick="showSection(\'analystDashboard\', event)">Analytics</button><button class="nav-btn" onclick="showSection(\'incidentsList\', event)">All Incidents</button>';
                 showSection('analystDashboard');
                 loadAnalystDashboard();
             } else {
-                navMenu.innerHTML = '<button class="nav-btn active" onclick="showSection(\'userDashboard\')">My Incidents</button><button class="nav-btn" onclick="showSection(\'reportIncident\')">Report</button>';
+                navMenu.innerHTML = '<button class="nav-btn active" onclick="showSection(\'userDashboard\', event)">My Incidents</button><button class="nav-btn" onclick="showSection(\'reportIncident\', event)">Report</button>';
                 showSection('userDashboard');
                 loadUserDashboard();
             }
         }
 
-        function showSection(sectionId) {
+        function showSection(sectionId, evt) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId).classList.add('active');
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-            event?.target?.classList.add('active');
+            // highlight clicked nav button if event provided
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('active');
+            }
 
             if (sectionId === 'adminDashboard') loadAdminDashboard();
             if (sectionId === 'analystDashboard') loadAnalystDashboard();
@@ -916,7 +930,7 @@
         async function loadIncidentMarkers() {
             if (!mainMap) return;
             try {
-                const incidents = await fetch(`${API_URL}/incidents`).then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
+                const incidents = await apiFetch('/incidents').then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
                 incidents.forEach(incident => {
                     if (incident.location_id && BUET_LOCATIONS[incident.location_id]) {
                         const loc = BUET_LOCATIONS[incident.location_id];
@@ -1001,8 +1015,8 @@
                 document.getElementById('adminIncidents').querySelector('tbody').innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading high-severity incidents...</td></tr>';
 
                 const [highResponse, allResponse] = await Promise.all([
-                    fetch(`${API_URL}/incidents`).then(r => r.json()).catch(e => { console.error('Error:', e); return []; }),
-                    fetch(`${API_URL}/incidents`).then(r => r.json()).catch(e => { console.error('Error:', e); return []; })
+                    apiFetch('/incidents').then(r => r.json()).catch(e => { console.error('Error:', e); return []; }),
+                    apiFetch('/incidents').then(r => r.json()).catch(e => { console.error('Error:', e); return []; })
                 ]);
                 
                 let incidents = highResponse.filter(i => [3, 4].includes(i.severity_id)) || [];
@@ -1069,9 +1083,9 @@
 
                 // Fetch all data in parallel
                 const [allIncidents, hotspots, typeStats] = await Promise.all([
-                    fetch(`${API_URL}/incidents`).then(r => r.json()).catch(e => { console.error('Incidents error:', e); return []; }),
-                    fetch(`${API_URL}/analytics/hotspots/location`).then(r => r.json()).catch(e => { console.error('Hotspots error:', e); return []; }),
-                    fetch(`${API_URL}/analytics/stats/type`).then(r => r.json()).catch(e => { console.error('Type stats error:', e); return []; })
+                    apiFetch('/incidents').then(r => r.json()).catch(e => { console.error('Incidents error:', e); return []; }),
+                    apiFetch('/analytics/hotspots/location').then(r => r.json()).catch(e => { console.error('Hotspots error:', e); return []; }),
+                    apiFetch('/analytics/stats/type').then(r => r.json()).catch(e => { console.error('Type stats error:', e); return []; })
                 ]);
 
                 // Calculate stats
@@ -1129,8 +1143,7 @@
         async function loadUserDashboard() {
             try {
                 showLoading('userIncidents');
-                const incidents = await fetch(`${API_URL}/incidents`).then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
-                const userIncidents = incidents.filter(i => i.reported_by === currentUser.user_id);
+        const incidents = await apiFetch('/incidents').then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
 
                 if (userIncidents.length === 0) {
                     document.getElementById('userIncidents').innerHTML = '<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 40px; background: #f5f5f5; border-radius: 8px;"><h3 style="color: #667eea; margin-bottom: 10px;">No Incidents Reported Yet</h3><p>You haven\'t reported any incidents. Click "Report New Incident" to get started and help keep campus safe.</p><button class="btn btn-primary" onclick="showSection(\'reportIncident\')" style="margin-top: 15px;">Report Your First Incident</button></div>';
@@ -1165,7 +1178,7 @@
                 showLoading('allIncidents');
                 document.getElementById('statsGrid').innerHTML = '<div class="loading" style="grid-column: 1/-1; text-align: center; padding: 40px;"><div class="spinner"></div></div>';
 
-                const incidents = await fetch(`${API_URL}/incidents`).then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
+                const incidents = await apiFetch('/incidents').then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
                 
                 const stats = {
                     total: incidents.length,
@@ -1225,9 +1238,8 @@
             document.getElementById('incidentForm')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 try {
-                    const response = await fetch(`${API_URL}/incidents`, {
+                    const response = await apiFetch('/incidents', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             reported_by: currentUser.user_id,
                             type_id: document.getElementById('incident_type').value,
@@ -1254,7 +1266,7 @@
 
         async function loadLocations() {
             try {
-                const locations = await fetch(`${API_URL}/locations`).then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
+                const locations = await apiFetch('/locations').then(r => r.json()).catch(e => { console.error('Error:', e); return []; });
                 const select = document.getElementById('location_id');
                 
                 select.innerHTML = '<option value="">&#x1F4CD; Select a location...</option>';
