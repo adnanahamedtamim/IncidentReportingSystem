@@ -9,9 +9,9 @@ const port = 3000;
 const pool = new Pool({
   host: 'localhost',
   port: 5432,
-  database: 'demo_db',
+  database: 'incident_db',
   user: 'postgres',
-  password: 'BARI@8114',
+  password: 'tamim783095s',
 });
 
 app.use(express.json());

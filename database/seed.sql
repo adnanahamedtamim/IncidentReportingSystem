@@ -221,20 +221,38 @@ VALUES
   (2, INTERVAL '3 days', 85.75),
   (4, INTERVAL '4 hours', 100.00);
 
--- ============================================================================
--- FORUM THREADS AND POSTS - Community Discussions
--- ============================================================================
-INSERT INTO FORUM_THREAD (User_id, Title, Created_at)
-VALUES
-  (1, 'Best practices for reporting incidents', CURRENT_TIMESTAMP - INTERVAL '10 days'),
-  (3, 'How to prevent theft in office spaces', CURRENT_TIMESTAMP - INTERVAL '7 days'),
-  (7, 'Medical emergency response procedures', CURRENT_TIMESTAMP - INTERVAL '5 days');
+-- ====================================================================
+-- FORUM THREADS + POSTS (FIXED PROPERLY)
+-- ====================================================================
 
+-- Step 1: Insert threads and capture IDs
+WITH inserted_threads AS (
+  INSERT INTO FORUM_THREAD (User_id, Title, Created_at)
+  VALUES
+    (1, 'Best practices for reporting incidents', CURRENT_TIMESTAMP - INTERVAL '10 days'),
+    (3, 'How to prevent theft in office spaces', CURRENT_TIMESTAMP - INTERVAL '7 days'),
+    (7, 'Medical emergency response procedures', CURRENT_TIMESTAMP - INTERVAL '5 days')
+  RETURNING thread_id, title
+)
+
+-- Step 2: Insert posts using REAL generated IDs
 INSERT INTO FORUM_POSTS (Thread_id, User_id, Post_text, Is_anonymous, Created_at)
-VALUES
-  (1, 1, 'Always include as much detail as possible when reporting', false, CURRENT_TIMESTAMP - INTERVAL '10 days'),
-  (1, 2, 'Attach photos if possible for better investigation', false, CURRENT_TIMESTAMP - INTERVAL '9 days'),
-  (2, 3, 'Keep valuables secured and use lockers when available', false, CURRENT_TIMESTAMP - INTERVAL '7 days'),
-  (2, 4, 'Report suspicious activity immediately', false, CURRENT_TIMESTAMP - INTERVAL '6.5 days'),
-  (3, 7, 'Know the location of medical kits and first aid supplies', false, CURRENT_TIMESTAMP - INTERVAL '5 days'),
-  (3, 2, 'Training on CPR and basic first aid is available monthly', false, CURRENT_TIMESTAMP - INTERVAL '4.5 days');
+SELECT 
+  t.thread_id,
+  p.user_id,
+  p.post_text,
+  p.is_anonymous,
+  p.created_at
+FROM inserted_threads t
+JOIN (
+  VALUES
+    ('Best practices for reporting incidents', 1, 'Always include as much detail as possible when reporting', false, CURRENT_TIMESTAMP - INTERVAL '10 days'),
+    ('Best practices for reporting incidents', 2, 'Attach photos if possible for better investigation', false, CURRENT_TIMESTAMP - INTERVAL '9 days'),
+
+    ('How to prevent theft in office spaces', 3, 'Keep valuables secured and use lockers when available', false, CURRENT_TIMESTAMP - INTERVAL '7 days'),
+    ('How to prevent theft in office spaces', 4, 'Report suspicious activity immediately', false, CURRENT_TIMESTAMP - INTERVAL '6.5 days'),
+
+    ('Medical emergency response procedures', 7, 'Know the location of medical kits and first aid supplies', false, CURRENT_TIMESTAMP - INTERVAL '5 days'),
+    ('Medical emergency response procedures', 2, 'Training on CPR and basic first aid is available monthly', false, CURRENT_TIMESTAMP - INTERVAL '4.5 days')
+) AS p(title, user_id, post_text, is_anonymous, created_at)
+ON t.title = p.title;
