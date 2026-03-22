@@ -785,7 +785,6 @@
             <div class="user-info">
                 <button id="darkModeToggle" class="dark-mode-toggle" onclick="toggleDarkMode()">🌙 Dark Mode</button>
                 <div id="userAccountBtn" class="account-btn" onclick="showSection('userProfile')">
-                    <div id="userRole" class="user-badge">User</div>
                     <div id="userName" style="font-weight: 600; font-size: 14px; transition: color 0.3s;">Student Name
                     </div>
                 </div>
@@ -1248,8 +1247,11 @@
 
         function setupUI() {
             document.getElementById('userName').textContent = currentUser.name;
-            document.getElementById('userRole').textContent = currentUser.role.toUpperCase();
-            document.getElementById('userRole').classList.add('user-badge', currentUser.role.toLowerCase());
+            const roleEl = document.getElementById('userRole');
+            if (roleEl) {
+                roleEl.textContent = currentUser.role.toUpperCase();
+                roleEl.classList.add('user-badge', currentUser.role.toLowerCase());
+            }
 
             // Default landing based on role
             if (currentUser.role === 'Admin') {
@@ -1262,14 +1264,19 @@
         }
 
         function showSection(sectionId, evt) {
-            // Track history for 'Back' button (if we aren't going to details view themselves)
+            // Track history for 'Back' button
+            // Neither 'viewIncidentDetails' nor 'userProfile' should overwrite lastSection —
+            // they are overlay-style views; we want to remember the real dashboard behind them.
+            const OVERLAY_SECTIONS = ['viewIncidentDetails', 'userProfile'];
             const activeSection = document.querySelector('.section.active');
-            if (activeSection && activeSection.id !== 'viewIncidentDetails' && sectionId === 'viewIncidentDetails') {
+            if (activeSection && !OVERLAY_SECTIONS.includes(activeSection.id) && OVERLAY_SECTIONS.includes(sectionId)) {
+                // Entering an overlay: capture where we came from
                 lastSection = activeSection.id;
-            } else if (sectionId !== 'viewIncidentDetails') {
-                // For direct navigation from sidebar/etc, the target is the new 'home'
+            } else if (!OVERLAY_SECTIONS.includes(sectionId)) {
+                // Normal navigation: the target becomes the new 'home'
                 lastSection = sectionId;
             }
+            // If navigating from one overlay to another (or staying in overlay), lastSection is unchanged.
 
             // Hide all sections
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
